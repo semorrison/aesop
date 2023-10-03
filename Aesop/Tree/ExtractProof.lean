@@ -61,6 +61,17 @@ private def getNewConsts (oldEnv newEnv : Environment) :
     newMap₂.foldl (init := #[]) λ cs n c =>
       if oldMap₂.contains n then cs else cs.push c
 
+/--
+`Lean.Environment.add` is now private, but exported as `lean_environment_add`.
+We call it here via `@[extern]` with a mock implementation.
+
+A better solution will be to factor out the "replay" functionality from
+https://github.com/leanprover/lean4checker into a function in core Lean,
+and then use that here.
+-/
+@[extern "lean_environment_add"]
+private def add (env : Environment) (_ : ConstantInfo) : Environment := env
+
 -- For each declaration `d` that appears in `newState` but not in
 -- `oldState`, add `d` to the environment. We assume that the environment in
 -- `newState` is a local extension of the environment in `oldState`, meaning
@@ -71,7 +82,7 @@ private def getNewConsts (oldEnv newEnv : Environment) :
 --    identical. (These contain imported decls.)
 private def copyNewDeclarations (oldEnv newEnv : Environment) : CoreM Unit := do
   let newConsts := getNewConsts oldEnv newEnv
-  setEnv $ newConsts.foldl (init := ← getEnv) λ env c => env.add c
+  setEnv $ newConsts.foldl (init := ← getEnv) λ env c => add env c 
 
 open Match in
 private def copyMatchEqnsExtState (oldEnv newEnv : Environment) : CoreM Unit := do
